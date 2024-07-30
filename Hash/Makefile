@@ -1,15 +1,14 @@
 # Makefile
 CC = gcc
 CFLAGS = -Iinclude -Wall
-CFLAGS_RELEASE = -O2 -DNDEBUG
+CFLAGS_RELEASE = -O3 -DNDEBUG
 
 DEPS = include/interface.h
 
 #目标文件
-# SRC = $(wildcard src/*.c)
-# OBJ = $(patsubst %.c, %.o, $(SRC))
-SRC = src/sha1.c src/main.c
-OBJ = src/sha1.o src/main.o
+SRC = $(wildcard src/*.c)
+OBJ = $(patsubst %.c, %.o, $(SRC))
+
 
 
 # 运行并生成日志文件
