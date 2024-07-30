@@ -1,0 +1,35 @@
+
+#include "../include/sha256.h"
+#include <string.h>
+
+
+
+static void sha256_init(void *context) {
+    sha256_context *ctx = (sha256_context *)context;
+    ctx->state[0] = 0x6A09E667;
+    ctx->state[1] = 0xBB67AE85;
+    ctx->state[2] = 0x3C6EF372;
+    ctx->state[3] = 0xA54FF53A;
+    ctx->state[4] = 0x510E527F;
+    ctx->state[5] = 0x9B05688C;
+    ctx->state[6] = 0x1F83D9AB;
+    ctx->state[7] = 0x5BE0CD19;
+    ctx->count = 0;
+    memset(ctx->buffer, 0, sizeof(ctx->buffer));
+}
+
+static void sha256_update(void *context, const uint8_t *data, size_t len) {
+    
+}
+
+static void sha256_final(void *context, uint8_t *hash) {
+    
+}
+
+const hash_algorithm sha256_algorithm = {
+    .init = sha256_init,
+    .update = sha256_update,
+    .final = sha256_final,
+    .context_size = sizeof(sha256_context),
+    .hash_size = 32
+};
