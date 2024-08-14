@@ -4,12 +4,8 @@
 #include <stdint.h>
 
 
-typedef struct {
-    void (*schedule) (void *context);
-	void (*encrypt) (void *context, const uint8_t *data, size_t len);
-	void (*final) (void *context, uint8_t *hash);
-	size_t context_size;
-	size_t block_size;
-}block_algorithm;
+void pkcs7_pad(uint8_t *data, int block_size, int data_size);
+uint8_t pkcs7_unpad(uint8_t *data, int block_size);
+
 
 #endif

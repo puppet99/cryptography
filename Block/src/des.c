@@ -1,121 +1,161 @@
 #include "des.h"
 
-void des_key_schedule(const uint8_t *key, uint8_t *round_keys){
-	//实现密钥扩展
-	uint8_t permuted_key[56];
+#define GET_BIT(x, bit) ((x & (1 << bit)) >> bit) //获取第bit位
+#define LEFT_ROTATE(x, bit) ((x) << (bit) | (x) >> (32 - (bit))) //循环左移
+#define XOR(a, b) ((a) ^ (b)) //异或
+
+//置换操作
+static void permute(uint8_t *output, const uint8_t *input, const uint8_t *table, int n);
+//异或操作
+static void xor_buffer(uint8_t *output, const uint8_t *input1, const uint8_t *input2, int n);
+
+//S盒替换
+static void sbox(uint8_t *output, const uint8_t *input);
+
+// DES 密钥扩展
+void des_key_expansion(uint8_t *expanded_key, const uint8_t *key) {
+    uint8_t permuted_choice1[56];
     uint8_t C[28], D[28];
 
-    // 初始置换
-    for (int i = 0; i < 56; i++) {
-        permuted_key[i] = key[PC1[i] - 1];
+    // 密钥置换选择PC-1（64位密钥降为56位密钥）
+    permute(permuted_choice1, key, PC1, 56);
+
+    // 将密钥分成左右两部分
+    for (int i = 0; i < 28; i++) {
+        C[i] = permuted_choice1[i];
+        D[i] = permuted_choice1[i + 28];
     }
 
-    // 分割密钥
-    memcpy(C, permuted_key, 28);
-    memcpy(D, permuted_key + 28, 28);
-
-    // 生成子密钥
+    // 16轮子密钥的生成
     for (int i = 0; i < 16; i++) {
-        // 左移
-        for (int j = 0; j < shifts[i]; j++) {
-            uint8_t tempC = C[0], tempD = D[0];
-            memmove(C, C + 1, 27);
-            memmove(D, D + 1, 27);
-            C[27] = tempC;
-            D[27] = tempD;
+        shift_left(C, shifts[i]);
+        shift_left(D, shifts[i]);
+
+        uint8_t CD[56];
+        for (int j = 0; j < 28; j++) {
+            CD[j] = C[j];
+            CD[j + 28] = D[j];
         }
 
-        // 压缩置换
-        for (int j = 0; j < 48; j++) {
-            round_keys[i * 48 + j] = (j < 24) ? C[PC2[j] - 1] : D[PC2[j] - 1];
-        }
+        // 置换选择表PC-2，生成子密钥
+        permute(&expanded_key[i * 6], CD, PC2, 48);
     }
 }
 
-// F函数
-uint32_t f(uint32_t R, const uint8_t *round_key) {
-    uint8_t expanded_R[48];
-    uint8_t S_output[32];
-    uint32_t output = 0;
+// DES 加密
+void des_encrypt_block(const uint8_t *expanded_key, const uint8_t *input, uint8_t *output) {
+    uint8_t ip[64];
+    uint8_t L[32], R[32], R_expanded[48], S_output[32];
 
-    // 扩展置换
-    for (int i = 0; i < 48; i++) {
-        expanded_R[i] = (R >> (32 - E[i])) & 1;
-    }
+    // 初始置换IP
+    permute(ip, input, IP, 64);
 
-    // S盒替换
-    for (int i = 0; i < 8; i++) {
-        uint8_t row = (expanded_R[i * 6] << 1) | expanded_R[i * 6 + 5];
-        uint8_t col = (expanded_R[i * 6 + 1] << 3) | (expanded_R[i * 6 + 2] << 2) | (expanded_R[i * 6 + 3] << 1) | expanded_R[i * 6 + 4];
-        uint8_t S_value = S[i][row * 16 + col];
-        for (int j = 0; j < 4; j++) {
-            S_output[i * 4 + j] = (S_value >> (3 - j)) & 1;
-        }
-    }
-
-    // P置换
+    // 将输出块分割成两左右两部分
     for (int i = 0; i < 32; i++) {
-        output |= S_output[P[i] - 1] << (31 - i);
+        L[i] = ip[i];
+        R[i] = ip[i + 32];
     }
 
-    return output;
-}
-
-
-void des_encrypt_block(const uint8_t *in, uint8_t *out, const uint8_t *round_keys) {
-    // 实现块加密
-	uint32_t L = 0, R = 0;
-
-    // 初始置换
-    for (int i = 0; i < 64; i++) {
-        if (i < 32) {
-            L |= ((in[IP[i] - 1] >> (7 - (i % 8))) & 1) << (31 - i);
-        } else {
-            R |= ((in[IP[i] - 1] >> (7 - (i % 8))) & 1) << (63 - i);
-        }
-    }
-
-    // 16轮加密
+    // 16 轮迭代
     for (int i = 0; i < 16; i++) {
-        uint32_t temp = R;
-        R = L ^ f(R, round_keys + i * 48);
-        L = temp;
+        // 扩展置换E，将数据右半部分R从32位扩展到48位
+        permute(R_expanded, R, E, 48);
+
+        // 扩展置换后的输出与子密钥进行异或
+        xor_buffer(R_expanded, R_expanded, &expanded_key[i * 6], 48);
+
+        // S盒
+        sbox(S_output, R_expanded);
+
+        // P盒
+        permute(S_output, S_output, P, 32);
+
+        // P盒的输出与最初64位分组的左半部分异或
+        xor_buffer(S_output, S_output, L, 32);
+
+        // L = R, R = S_output
+        memcpy(L, R, 32);
+        memcpy(R, S_output, 32);
     }
 
-    // 合并L和R
-    uint64_t pre_output = ((uint64_t)R << 32) | L;
+    // 拼接L和R
+    uint8_t RL[64];
+    for (int i = 0; i < 32; i++) {
+        RL[i] = R[i];
+        RL[i + 32] = L[i];
+    }
 
     // 逆初始置换
-    for (int i = 0; i < 64; i++) {
-        out[i / 8] |= ((pre_output >> (63 - FP[i])) & 1) << (7 - (i % 8));
+    permute(output, RL, FP, 64);
+}
+
+// DES 解密
+void des_decrypt_block(const uint8_t *expanded_key, const uint8_t *input, uint8_t *output) {
+    uint8_t ip[64];
+    uint8_t L[32], R[32], R_expanded[48], S_output[32];
+
+    // 应用初始置换
+    permute(ip, input, IP, 64);
+
+    // 将信息分割成左右两部分
+    for (int i = 0; i < 32; i++) {
+        L[i] = ip[i];
+        R[i] = ip[i + 32];
+    }
+
+    // 16 轮迭代 （相反的顺序）
+    for (int i = 15; i >= 0; i--) {
+        // 将右半部分扩展到48位
+        permute(R_expanded, R, E, 48);
+
+        // 输出后的结果与密钥进行异或
+        xor_buffer(R_expanded, R_expanded, &expanded_key[i * 6], 48);
+
+        // S盒
+        sbox(S_output, R_expanded);
+
+        // P盒
+        permute(S_output, S_output, P, 32);
+
+        // 与左半部分进行异或
+        xor_buffer(S_output, S_output, L, 32);
+
+        // L = R, R = S_output
+        memcpy(L, R, 32);
+        memcpy(R, S_output, 32);
+    }
+
+    // 拼接L和R
+    uint8_t RL[64];
+    for (int i = 0; i < 32; i++) {
+        RL[i] = R[i];
+        RL[i + 32] = L[i];
+    }
+
+    // 逆初始置换
+    permute(output, RL, FP, 64);
+}
+
+// 置换操作(初始置换表、逆初始置换表、E表、P表)
+static void permute(uint8_t *output, const uint8_t *input, const uint8_t *table, int n) {
+	uint8_t temp = 0;
+    for (int i = 0, j = 1; i < n; i++, j++) {
+		uint8_t emp = (table[i] - 1) / 8;
+		temp << 1;
+		temp |= GET_BIT(input[emp], table[i] % 8);
+		if (j == 8){
+			output[i/8] = temp;
+			j = 0;
+			temp = 0;
+		}
     }
 }
 
-void des_decrypt_block(const uint8_t *in, uint8_t *out, const uint8_t *round_keys) {
-    // 实现块解密
-	uint32_t L = 0, R = 0;
-
-    // 初始置换
-    for (int i = 0; i < 64; i++) {
-        if (i < 32) {
-            L |= ((in[IP[i] - 1] >> (7 - (i % 8))) & 1) << (31 - i);
-        } else {
-            R |= ((in[IP[i] - 1] >> (7 - (i % 8))) & 1) << (63 - i);
-        }
-    }
-
-    // 16轮解密
-    for (int i = 15; i >= 0; i--) {
-        uint32_t temp = L;
-        L = R ^ f(L, round_keys + i * 48);
-        R = temp;
-    }
-
-    // 合并L和R
-    uint64_t pre_output = ((uint64_t)R << 32) | L;
-
-    // 逆初始置换
-    for (int i = 0; i < 64; i++) {
-        out[i / 8] |= ((pre_output >> (63 - FP[i])) & 1) << (7 - (i % 8));
+// S盒代换
+static void sbox(uint8_t *output, const uint8_t *input) {
+    for (int i = 0; i < 8; i++) {
+        uint8_t row = (input[i * 6] << 1) | input[i * 6 + 5];
+        uint8_t col = (input[i * 6 + 1] << 3) | (input[i * 6 + 2] << 2) | (input[i * 6 + 3] << 1) | input[i * 6 + 4];
+        output[i * 4] = S[i][row][col];
     }
 }
