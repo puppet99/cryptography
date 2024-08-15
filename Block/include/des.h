@@ -1,8 +1,9 @@
 #ifndef DES_H
 #define DES_H
 
-#include<stdint.h>
-#include<string.h>
+#include <stdint.h>
+#include <string.h>
+#include <stdio.h>
 #include "interface.h"
 
 

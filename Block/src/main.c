@@ -2,8 +2,8 @@
 #include "des.h"
 
 int main(){
-	uint8_t des_key[8] = {0x13, 0x34, 0x57, 0x79, 0x9B, 0xBC, 0xDF, 0xF1};
-    uint8_t des_exp_key[48];  // 48 bytes for DES key expansion
+	uint64_t des_key= {0x133457799BBCDFF1};
+    uint64_t des_exp_key;  // 48位扩展密钥
     uint8_t des_plaintext[16] = "SecurityABCDEF";  // 14 bytes
     uint8_t des_padded_block[16];
     memcpy(des_padded_block, des_plaintext, 14);
