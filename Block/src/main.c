@@ -2,19 +2,15 @@
 #include "des.h"
 
 int main(){
-	uint64_t des_key= {0x133457799BBCDFF1};
-    uint64_t des_exp_key;  // 48位扩展密钥
-    uint8_t des_plaintext[16] = "SecurityABCDEF";  // 14 bytes
-    uint8_t des_padded_block[16];
+	uint64_t des_key= {0x133457799BBCDFF1}, des_plaintext[2] = "SecurityABCDEF", expanded_key[16] = 0;
+	uint64_t des_ciphertext, des_decrypted;
+    uint64_t des_padded_block[2];
     memcpy(des_padded_block, des_plaintext, 14);
     pkcs7_pad(des_padded_block, 16, 14);
    
-    uint8_t des_ciphertext[16];
-    uint8_t des_decrypted[16];
-   
-    des_key_expansion(des_exp_key, des_key);
-    des_encrypt_block(des_exp_key, des_padded_block, des_ciphertext);
-    des_decrypt_block(des_exp_key, des_ciphertext, des_decrypted);
+    des_key_expansion(expanded_key, des_key);
+    des_encrypt_block(des_padded_block, des_ciphertext, des_key);
+    des_decrypt_block(des_ciphertext, des_decrypted, des_key);
    
     uint8_t des_unpadded_len = pkcs7_unpad(des_decrypted, 16);
 

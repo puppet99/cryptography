@@ -63,7 +63,8 @@
 		"sha256.h": "c",
 		"md5.h": "c",
 		"stdint.h": "c",
-		"sha1.h": "c"
+		"sha1.h": "c",
+		"des.h": "c"
 	},
     "editor.suggest.snippetsPreventQuickSuggestions": false,
     "aiXcoder.showTrayIcon": true
