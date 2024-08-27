@@ -4,6 +4,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdio.h>
+#include <inttypes.h>
 #include "interface.h"
 
 
@@ -137,8 +138,10 @@ static const uint8_t E[48] = {
     28, 29, 30, 31, 32,  1
 };
 
-void des_key_expansion(const uint64_t *expanded_key, const uint64_t *key);
-void des_encrypt_block(const uint64_t *input, uint64_t *output, const uint64_t *expanded_key);
-void des_decrypt_block(const uint64_t *input, uint64_t *output, const uint64_t *expanded_key);
+
+
+void des_key_expansion(uint64_t *expanded_key, const uint8_t *key);
+void des_encrypt_block(const uint8_t *input, uint8_t *output, const uint64_t *expanded_key);
+void des_decrypt_block(const uint8_t *input, uint8_t *output, const uint64_t *expanded_key);
 
 #endif

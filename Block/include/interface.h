@@ -5,7 +5,7 @@
 
 
 void pkcs7_pad(uint8_t *data, int block_size, int data_size);
-uint8_t pkcs7_unpad(uint8_t *data, int block_size);
+int pkcs7_unpad(uint8_t *data, int block_size);
 
 
 #endif
